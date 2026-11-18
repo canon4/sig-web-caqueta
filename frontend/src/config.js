@@ -1,14 +1,16 @@
 /**
  * Configuración del visor.
  *
- * GEOSERVER: en producción Nginx publica GeoServer en el mismo dominio (/geoserver),
- * así el navegador no necesita CORS. En desarrollo, Vite hace el mismo proxy
- * (ver vite.config.js). Se puede cambiar con la variable VITE_GEOSERVER_URL
- * o, para pruebas, con ?geoserver=http://otro-servidor/geoserver en la URL.
+ * GEOSERVER: ruta RELATIVA "geoserver". Nginx la reenvía a GeoServer en el mismo
+ * dominio, así el navegador no necesita CORS, y el visor funciona igual en la raíz
+ * (https://sig.dominio.com/) o en una subruta (http://IP/sig-caqueta/).
+ * En desarrollo, Vite hace el mismo proxy (vite.config.js).
+ * Se puede cambiar con VITE_GEOSERVER_URL o, para pruebas, con
+ * ?geoserver=http://otro-servidor/geoserver en la URL.
  */
 const params = new URLSearchParams(location.search);
 
-export const GEOSERVER = params.get('geoserver') || import.meta.env.VITE_GEOSERVER_URL || '/geoserver';
+export const GEOSERVER = params.get('geoserver') || import.meta.env.VITE_GEOSERVER_URL || 'geoserver';
 export const WS = import.meta.env.VITE_WORKSPACE || 'caqueta';
 
 export const WMS_URL = `${GEOSERVER}/${WS}/wms`;

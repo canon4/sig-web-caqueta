@@ -1,6 +1,6 @@
 # ==============================================================
 #  CI/CD: valida el proyecto en cada push y, en la rama main,
-#  despliega en el servidor por SSH (git pull + compilar el visor).
+#  despliega en el servidor por SSH (git pull + docker compose up --build).
 #
 #  Secretos requeridos (GitHub > Settings > Secrets and variables > Actions):
 #    SSH_HOST     IP o dominio del servidor
@@ -45,6 +45,12 @@ jobs:
           npm ci
           npm run build
 
+      - name: Validar compose.yaml
+        run: cp .env.example .env && docker compose config -q
+
+      - name: Construir imágenes Docker
+        run: docker compose build
+
   desplegar:
     needs: validar
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
@@ -63,4 +69,4 @@ jobs:
           echo "$SSH_KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
           ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
           ssh -i ~/.ssh/id_deploy "$SSH_USER@$SSH_HOST" \
-            "set -e; cd '$APP_DIR'; git pull --ff-only; sudo bash infra/scripts/06_publicar_web.sh; bash infra/scripts/07_verificar.sh"
+            "set -e; cd '$APP_DIR'; git pull --ff-only; docker compose up -d --build --remove-orphans; docker compose wait configurador; source .env; BASE=http://127.0.0.1:\${WEB_PORT:-8090} bash infra/scripts/07_verificar.sh"

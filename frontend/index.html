@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SIG Web · Departamento del Caquetá</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<header>
+  <div>
+    <h1>SIG Web · Departamento del Caquetá</h1>
+    <div class="sub">PostGIS → GeoServer (WMS / WFS) → Leaflet</div>
+  </div>
+  <div class="estado"><span id="punto" class="punto"></span><span id="estado-txt">Conectando con GeoServer…</span></div>
+</header>
+
+<aside>
+  <h2>Capas</h2>
+  <div id="lista-capas"></div>
+
+  <h2>Consultas</h2>
+  <label for="sel-mun" style="font-size:13px">Hospitales por municipio (filtro WFS)</label>
+  <select id="sel-mun"><option value="">Todos los municipios</option></select>
+  <button id="btn-riesgo">Hospitales en zona de riesgo</button>
+  <button id="btn-limpiar" class="sec">Limpiar consulta</button>
+  <div id="resultado"></div>
+
+  <h2>Leyenda (GetLegendGraphic)</h2>
+  <div id="leyenda"></div>
+
+  <h2>Peticiones al servidor</h2>
+  <div id="peticiones"></div>
+
+  <p class="nota">Municipios: DANE, Marco Geoestadístico Nacional 2018.
+  Hospitales, instituciones, vías y zonas de riesgo son <b>datos ilustrativos</b> creados para la demostración.</p>
+</aside>
+
+<div id="mapa"></div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

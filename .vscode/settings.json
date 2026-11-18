@@ -1,0 +1,16 @@
+{
+  "files.eol": "\n",
+  "files.associations": { "*.sld": "xml", "*.geojson": "json", ".env.example": "properties" },
+  "editor.tabSize": 2,
+  "sqltools.connections": [
+    {
+      "name": "PostGIS local (Docker)",
+      "driver": "PostgreSQL",
+      "server": "localhost",
+      "port": 5432,
+      "database": "sig_caqueta",
+      "username": "sig_admin",
+      "askForPassword": true
+    }
+  ]
+}

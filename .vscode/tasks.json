@@ -1,0 +1,14 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "Docker: levantar entorno", "type": "shell", "command": "docker compose up -d", "problemMatcher": [] },
+    { "label": "Docker: importar datos", "type": "shell", "command": "docker compose --profile tools run --rm importador", "problemMatcher": [] },
+    { "label": "Docker: crear vista espacial", "type": "shell",
+      "command": "docker compose exec -T postgis sh -c 'psql -U $POSTGRES_USER -d $POSTGRES_DB -v app=$DB_APP_USER -f /db/02_vistas.sql'", "problemMatcher": [] },
+    { "label": "GeoServer: configurar (local)", "type": "shell",
+      "command": "GS_URL=http://localhost:8080/geoserver DB_HOST=postgis bash infra/scripts/05_configurar_geoserver.sh", "problemMatcher": [] },
+    { "label": "Frontend: dev", "type": "npm", "script": "dev", "path": "frontend", "isBackground": true, "problemMatcher": [] },
+    { "label": "Frontend: build", "type": "npm", "script": "build", "path": "frontend", "group": "build", "problemMatcher": [] },
+    { "label": "Verificar servicios (local)", "type": "shell", "command": "BASE=http://localhost:8081 bash infra/scripts/07_verificar.sh", "problemMatcher": [] }
+  ]
+}

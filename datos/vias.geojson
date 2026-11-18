@@ -1,0 +1,13 @@
+{
+"type": "FeatureCollection",
+"name": "sql_statement",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "id": 1, "nombre": "Florencia - San Vicente del Caguán", "tipo": "Primaria", "fuente": "Trazado esquemático entre cabeceras (demo)" }, "geometry": { "type": "LineString", "coordinates": [ [ -75.6062, 1.6144 ], [ -75.436, 1.479 ], [ -75.326, 1.57 ], [ -75.285, 1.678 ], [ -75.157, 1.909 ], [ -74.77, 2.115 ] ] } },
+{ "type": "Feature", "properties": { "id": 2, "nombre": "Florencia - San José del Fragua", "tipo": "Primaria", "fuente": "Trazado esquemático entre cabeceras (demo)" }, "geometry": { "type": "LineString", "coordinates": [ [ -75.6062, 1.6144 ], [ -75.725, 1.487 ], [ -75.8727, 1.4163 ], [ -75.8785, 1.329 ], [ -75.974, 1.33 ] ] } },
+{ "type": "Feature", "properties": { "id": 3, "nombre": "Albania - Curillo", "tipo": "Secundaria", "fuente": "Trazado esquemático entre cabeceras (demo)" }, "geometry": { "type": "LineString", "coordinates": [ [ -75.8785, 1.329 ], [ -75.9192, 1.0333 ] ] } },
+{ "type": "Feature", "properties": { "id": 4, "nombre": "Morelia - Valparaíso - Solita", "tipo": "Secundaria", "fuente": "Trazado esquemático entre cabeceras (demo)" }, "geometry": { "type": "LineString", "coordinates": [ [ -75.725, 1.487 ], [ -75.707, 1.195 ], [ -75.62, 0.877 ] ] } },
+{ "type": "Feature", "properties": { "id": 5, "nombre": "Florencia - Milán", "tipo": "Secundaria", "fuente": "Trazado esquemático entre cabeceras (demo)" }, "geometry": { "type": "LineString", "coordinates": [ [ -75.6062, 1.6144 ], [ -75.507, 1.29 ] ] } },
+{ "type": "Feature", "properties": { "id": 6, "nombre": "El Paujil - Cartagena del Chairá", "tipo": "Secundaria", "fuente": "Trazado esquemático entre cabeceras (demo)" }, "geometry": { "type": "LineString", "coordinates": [ [ -75.326, 1.57 ], [ -74.843, 1.335 ] ] } }
+]
+}

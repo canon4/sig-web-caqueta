@@ -1,0 +1,66 @@
+# ==============================================================
+#  CI/CD: valida el proyecto en cada push y, en la rama main,
+#  despliega en el servidor por SSH (git pull + compilar el visor).
+#
+#  Secretos requeridos (GitHub > Settings > Secrets and variables > Actions):
+#    SSH_HOST     IP o dominio del servidor
+#    SSH_USER     usuario SSH (root en Hostinger, ubuntu en Oracle)
+#    SSH_KEY      llave privada SSH (contenido completo)
+#    APP_DIR      carpeta del repo en el servidor, p. ej. /srv/sig-web-caqueta
+# ==============================================================
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sintaxis de los scripts bash
+        run: for f in infra/scripts/*.sh db/*.sh; do bash -n "$f" && echo "ok $f"; done
+
+      - name: Estilos SLD bien formados
+        run: |
+          sudo apt-get install -y -qq libxml2-utils >/dev/null
+          xmllint --noout geoserver/estilos/*.sld
+
+      - name: GeoJSON válidos
+        run: for f in datos/*.geojson; do python3 -m json.tool "$f" >/dev/null && echo "ok $f"; done
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Compilar el visor
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+  desplegar:
+    needs: validar
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment: produccion
+    steps:
+      - name: Desplegar en el servidor
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          APP_DIR: ${{ secrets.APP_DIR }}
+        run: |
+          if [ -z "$SSH_HOST" ]; then echo "Sin secretos de despliegue: se omite."; exit 0; fi
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/id_deploy "$SSH_USER@$SSH_HOST" \
+            "set -e; cd '$APP_DIR'; git pull --ff-only; sudo bash infra/scripts/06_publicar_web.sh; bash infra/scripts/07_verificar.sh"

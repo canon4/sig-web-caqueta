@@ -1,0 +1,14 @@
+# Secretos: NUNCA al repositorio
+.env
+*.key
+*.pem
+
+# Dependencias y builds
+node_modules/
+frontend/dist/
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+*.log
+.idea/

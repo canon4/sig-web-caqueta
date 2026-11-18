@@ -7,6 +7,13 @@ source "$(dirname "$0")/_comun.sh"
 DB_HOST="${DB_HOST:-localhost}"
 
 export PGPASSWORD="$DB_OWNER_PASS"
+
+# Esperar a que PostgreSQL acepte conexiones (máx. 2 minutos)
+for i in $(seq 1 60); do
+  pg_isready -q -h "$DB_HOST" -U "$DB_OWNER" -d "$DB_NAME" && break
+  [ "$i" = 1 ] && echo "==> Esperando a PostgreSQL en $DB_HOST ..."
+  sleep 2
+done
 PG="PG:host=$DB_HOST dbname=$DB_NAME user=$DB_OWNER password=$DB_OWNER_PASS"
 
 importar () {   # $1 = archivo, $2 = tabla, $3 = tipo de geometría

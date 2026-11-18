@@ -41,9 +41,13 @@ services:
     ports:
       - "127.0.0.1:${DB_PORT:-5432}:5432"     # para QGIS/DBeaver por túnel SSH
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_OWNER} -d ${DB_NAME}"]
+      # -h 127.0.0.1: comprobar por TCP. En el primer arranque la imagen levanta un
+      # servidor temporal solo por socket para los scripts de inicio; sin -h, el
+      # healthcheck lo daría por listo y el importador encontraría la conexión cerrada.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${DB_OWNER} -d ${DB_NAME}"]
       interval: 5s
       retries: 30
+      start_period: 20s
 
   importador:
     build:

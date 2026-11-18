@@ -24,7 +24,8 @@ prueba_img () {
 
 echo "== Servicios en $BASE =="
 prueba "Visor web (index.html)"            "$BASE/"  "SIG Web"
-prueba "WMS GetCapabilities lista capas"   "$OWS?service=WMS&version=1.3.0&request=GetCapabilities" "$WS:municipios"
+# en la URL del workspace, WMS lista las capas sin prefijo (<Name>municipios</Name>)
+prueba "WMS GetCapabilities lista capas"   "$OWS?service=WMS&version=1.3.0&request=GetCapabilities" "municipios</Name>"
 prueba_img "WMS GetMap devuelve PNG"       "$OWS?service=WMS&version=1.1.1&request=GetMap&layers=$WS:municipios,$WS:zonas_riesgo,$WS:vias&styles=&bbox=-76.4,-0.8,-71.2,3.0&width=800&height=600&srs=EPSG:4326&format=image/png"
 prueba "WFS GetCapabilities"               "$OWS?service=WFS&version=2.0.0&request=GetCapabilities" "$WS:hospitales"
 prueba "WFS GetFeature hospitales (GeoJSON)" "$OWS?service=WFS&version=1.0.0&request=GetFeature&typeName=$WS:hospitales&outputFormat=application/json" '"FeatureCollection"'

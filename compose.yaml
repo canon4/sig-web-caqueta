@@ -1,116 +1,148 @@
 # ==============================================================
 #  SIG Web Caquetá · todo el sistema en contenedores
 #
-#    cp .env.example .env   (y cambia las contraseñas)
-#    docker compose up -d --build
+#  Uso:
+#    cp .env.example .env          # y cambia las contraseñas
+#    docker compose up -d --build  # levanta los 5 servicios en orden
+#    docker compose ps -a          # estado de cada uno
 #
-#  Servicios:
-#    postgis       PostgreSQL 16 + PostGIS (datos)
-#    importador    carga datos/ a PostGIS y crea la vista (se ejecuta y termina)
-#    geoserver     GeoServer 3 (WMS/WFS)
-#    configurador  crea workspace, data store, capas y estilos (se ejecuta y termina)
-#    web           visor Leaflet + proxy /geoserver/ (Nginx)
+#  Los valores ${VARIABLE} se leen del archivo .env
 #
-#  SEGURIDAD: todos los puertos se publican SOLO en 127.0.0.1.
-#  Docker se salta ufw, así que nunca publiques en 0.0.0.0.
-#  El acceso público lo da el servidor web del host (Apache/Nginx) -> 127.0.0.1:WEB_PORT
+#  Orden de arranque:
+#    1. postgis       base de datos espacial                (queda corriendo)
+#    2. importador    carga datos/ en PostGIS               (corre una vez y termina)
+#    3. geoserver     publica las capas como WMS/WFS        (queda corriendo)
+#    4. configurador  crea capas y estilos en GeoServer     (corre una vez y termina)
+#    5. web           visor Leaflet + proxy a GeoServer     (queda corriendo)
+#
+#  SEGURIDAD: los puertos se publican SOLO en 127.0.0.1.
+#  Docker se salta el firewall (ufw), así que nunca uses 0.0.0.0.
+#  El acceso público lo da el Apache/Nginx del servidor -> 127.0.0.1:WEB_PORT
 # ==============================================================
 name: sig-web-caqueta
 
-x-entorno-db: &entorno-db
-  DB_HOST: postgis
-  DB_NAME: ${DB_NAME}
-  DB_OWNER: ${DB_OWNER}
-  DB_OWNER_PASS: ${DB_OWNER_PASS}
-  DB_APP_USER: ${DB_APP_USER}
-  DB_APP_PASS: ${DB_APP_PASS}
-
 services:
+
+  # ------------------------------------------------------------
+  # 1. POSTGIS: PostgreSQL 16 con la extensión espacial PostGIS
+  #    La primera vez ejecuta db/docker-init.sh, que activa
+  #    PostGIS y crea el usuario de solo lectura para GeoServer.
+  # ------------------------------------------------------------
   postgis:
     image: postgis/postgis:16-3.4
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_OWNER}
+      POSTGRES_DB: ${DB_NAME}               # base de datos que se crea
+      POSTGRES_USER: ${DB_OWNER}            # dueño de los datos
       POSTGRES_PASSWORD: ${DB_OWNER_PASS}
-      DB_APP_USER: ${DB_APP_USER}
+      DB_APP_USER: ${DB_APP_USER}           # usuario de solo lectura (lo usa docker-init.sh)
       DB_APP_PASS: ${DB_APP_PASS}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data                              # los datos sobreviven al contenedor
       - ./db/docker-init.sh:/docker-entrypoint-initdb.d/10-init.sh:ro
     ports:
-      - "127.0.0.1:${DB_PORT:-5432}:5432"     # para QGIS/DBeaver por túnel SSH
+      - "127.0.0.1:${DB_PORT:-5432}:5432"   # solo local: para QGIS/DBeaver por túnel SSH
     healthcheck:
-      # -h 127.0.0.1: comprobar por TCP. En el primer arranque la imagen levanta un
-      # servidor temporal solo por socket para los scripts de inicio; sin -h, el
-      # healthcheck lo daría por listo y el importador encontraría la conexión cerrada.
+      # "listo" = acepta conexiones por red (TCP), no solo por el socket interno
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${DB_OWNER} -d ${DB_NAME}"]
       interval: 5s
       retries: 30
       start_period: 20s
 
+  # ------------------------------------------------------------
+  # 2. IMPORTADOR: carga los GeoJSON de datos/ en PostGIS
+  #    Usa ogr2ogr (GDAL) y ejecuta infra/scripts/03_importar_datos.sh:
+  #    importa, crea la vista espacial y valida geometrías.
+  #    Corre una vez y termina (estado "Exited (0)").
+  # ------------------------------------------------------------
   importador:
     build:
       context: .
-      dockerfile: infra/docker/herramientas.Dockerfile
-    image: sig-caqueta/herramientas
-    environment: *entorno-db
-    volumes:
-      - ./:/proyecto:ro
-    command: ["bash", "/proyecto/infra/scripts/03_importar_datos.sh"]
+      dockerfile: infra/docker/herramientas.Dockerfile   # GDAL + cliente psql + curl
     restart: "no"
+    environment:
+      DB_HOST: postgis                      # nombre del servicio 1 en la red de Docker
+      DB_NAME: ${DB_NAME}
+      DB_OWNER: ${DB_OWNER}
+      DB_OWNER_PASS: ${DB_OWNER_PASS}
+      DB_APP_USER: ${DB_APP_USER}
+      DB_APP_PASS: ${DB_APP_PASS}
+    volumes:
+      - ./:/proyecto:ro                     # el repositorio, solo lectura
+    command: ["bash", "/proyecto/infra/scripts/03_importar_datos.sh"]
     depends_on:
       postgis:
-        condition: service_healthy
+        condition: service_healthy          # espera a que la base esté lista
 
+  # ------------------------------------------------------------
+  # 3. GEOSERVER: publica las tablas de PostGIS como WMS y WFS
+  #    Imagen oficial; ya trae Java. Su configuración (capas,
+  #    estilos) se guarda en el volumen gsdata.
+  # ------------------------------------------------------------
   geoserver:
     image: docker.osgeo.org/geoserver:${GS_VERSION}
     restart: unless-stopped
     environment:
-      SKIP_DEMO_DATA: "true"
+      SKIP_DEMO_DATA: "true"                # sin las capas de ejemplo
       GEOSERVER_ADMIN_USER: admin
       GEOSERVER_ADMIN_PASSWORD: ${GS_ADMIN_PASS}
-      EXTRA_JAVA_OPTS: ${GS_JAVA_MEM}
-      # dominio desde el que se permite usar el panel a través de un proxy (protección CSRF)
-      GEOSERVER_CSRF_WHITELIST: ${GS_CSRF_WHITELIST:-}
+      EXTRA_JAVA_OPTS: ${GS_JAVA_MEM}       # memoria para Java
+      GEOSERVER_CSRF_WHITELIST: ${GS_CSRF_WHITELIST:-}   # solo si publicas el panel (opcional)
     volumes:
       - gsdata:/opt/geoserver_data
     ports:
-      - "127.0.0.1:${GS_PORT:-8080}:8080"     # panel de administración por túnel SSH
+      - "127.0.0.1:${GS_PORT:-8080}:8080"   # solo local: panel de administración por túnel SSH
     depends_on:
       postgis:
         condition: service_healthy
 
+  # ------------------------------------------------------------
+  # 4. CONFIGURADOR: configura GeoServer por su API REST
+  #    Espera a que GeoServer responda y ejecuta
+  #    infra/scripts/05_configurar_geoserver.sh: workspace,
+  #    data store PostGIS, estilos SLD y capas.
+  #    Corre una vez y termina (estado "Exited (0)").
+  # ------------------------------------------------------------
   configurador:
-    image: sig-caqueta/herramientas       # la construye el servicio importador
-    pull_policy: never
+    build:
+      context: .
+      dockerfile: infra/docker/herramientas.Dockerfile   # misma imagen de herramientas
+    restart: "no"
     environment:
-      <<: *entorno-db
-      GS_URL: http://geoserver:8080/geoserver
+      GS_URL: http://geoserver:8080/geoserver   # nombre del servicio 3 en la red de Docker
       GS_ADMIN_PASS: ${GS_ADMIN_PASS}
       GS_WORKSPACE: ${GS_WORKSPACE}
       GS_STORE: ${GS_STORE}
+      DB_HOST: postgis                      # host que GeoServer usará para llegar a PostGIS
+      DB_NAME: ${DB_NAME}
+      DB_APP_USER: ${DB_APP_USER}           # GeoServer se conecta con el usuario de solo lectura
+      DB_APP_PASS: ${DB_APP_PASS}
     volumes:
       - ./:/proyecto:ro
     command: ["bash", "/proyecto/infra/docker/configurar-geoserver.sh"]
-    restart: "no"
     depends_on:
       importador:
-        condition: service_completed_successfully
+        condition: service_completed_successfully   # las tablas ya existen
       geoserver:
         condition: service_started
 
+  # ------------------------------------------------------------
+  # 5. WEB: Nginx con el visor Leaflet ya compilado
+  #    Sirve el visor y reenvía /geoserver/ al servicio 3,
+  #    así el navegador ve todo en el mismo dominio (sin CORS).
+  #    La imagen se construye en dos etapas: Node compila, Nginx sirve.
+  # ------------------------------------------------------------
   web:
     build:
       context: .
       dockerfile: infra/docker/web.Dockerfile
-    image: sig-caqueta/web
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${WEB_PORT:-8090}:80"
+      - "127.0.0.1:${WEB_PORT:-8090}:80"    # Apache/Nginx del servidor reenvía aquí
     depends_on:
       - geoserver
 
+# Discos persistentes: sobreviven a "docker compose down" (se borran con "down -v")
 volumes:
-  pgdata:
-  gsdata:
+  pgdata:       # datos de PostgreSQL
+  gsdata:       # configuración de GeoServer

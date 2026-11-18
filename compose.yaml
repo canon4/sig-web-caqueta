@@ -71,6 +71,8 @@ services:
       GEOSERVER_ADMIN_USER: admin
       GEOSERVER_ADMIN_PASSWORD: ${GS_ADMIN_PASS}
       EXTRA_JAVA_OPTS: ${GS_JAVA_MEM}
+      # dominio desde el que se permite usar el panel a través de un proxy (protección CSRF)
+      GEOSERVER_CSRF_WHITELIST: ${GS_CSRF_WHITELIST:-}
     volumes:
       - gsdata:/opt/geoserver_data
     ports:
